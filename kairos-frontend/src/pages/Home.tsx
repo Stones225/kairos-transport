@@ -7,11 +7,11 @@ import PricingSection from '../components/Home/PricingSection';
 import TestimonialsCarousel from '../components/Home/TestimonialsCarousel';
 import AboutSection from '../components/Home/AboutSection';
 import ContactSection from '../components/Home/ContactSection';
-import { useLanguage } from '../contexts/LanguageContext';
+import { useLocale } from 'next-intl';
 
 const Home: React.FC = () => {
-  const { currentLanguage } = useLanguage();
-  
+  const currentLanguage = useLocale();
+
   useEffect(() => {
     // Handle hash navigation on page load
     const hash = window.location.hash.substring(1);
@@ -27,7 +27,7 @@ const Home: React.FC = () => {
 
   return (
     <>
-      <SEOHeader 
+      <SEOHeader
         language={currentLanguage}
         url="https://kairos-senegal.com"
       />
@@ -35,7 +35,7 @@ const Home: React.FC = () => {
         <div id="hero">
           <HeroSection />
         </div>
-        
+
         <div id="services" className="-mt-16">
           <ServicesOverview />
         </div>

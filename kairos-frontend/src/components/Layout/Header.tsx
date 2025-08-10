@@ -1,27 +1,32 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import Link from 'next/link';
 import { FaBars, FaTimes, FaCar } from 'react-icons/fa';
 import { UserIcon, ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline';
 import LanguageSelector from '../Common/LanguageSelector';
 import LoginModal from '../Auth/LoginModal';
-import { useLanguage } from '../../contexts/LanguageContext';
+import { useTranslations } from 'next-intl';
 import { useAuth } from '../../contexts/AuthContext';
+import { usePathname } from 'next/navigation';
 
-const Header: React.FC = () => {
+interface HeaderProps {
+  locale: string;
+}
+
+const Header: React.FC<HeaderProps> = ({ locale }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const location = useLocation();
-  const { t } = useLanguage();
+  const pathname = usePathname();
+  const t = useTranslations();
   const { currentUser, userProfile, logout } = useAuth();
 
   const navItems = [
-    { name: t('nav.home'), path: '/', anchor: 'hero' },
-    { name: t('nav.services'), path: '/', anchor: 'services' },
-    { name: 'Tarifs', path: '/', anchor: 'tarifs' },
-    { name: 'À propos', path: '/', anchor: 'about' },
-    { name: t('nav.contact'), path: '/', anchor: 'contact' },
-    { name: 'FAQ', path: '/faq' },
-    { name: 'Galerie', path: '/gallery' },
+    { name: t('nav.home'), path: `/${locale}`, anchor: 'hero' },
+    { name: t('nav.services'), path: `/${locale}`, anchor: 'services' },
+    { name: 'Tarifs', path: `/${locale}`, anchor: 'tarifs' },
+    { name: 'À propos', path: `/${locale}`, anchor: 'about' },
+    { name: t('nav.contact'), path: `/${locale}`, anchor: 'contact' },
+    { name: 'FAQ', path: `/${locale}/faq` },
+    { name: 'Galerie', path: `/${locale}/gallery` },
   ];
 
   const toggleMenu = () => {
@@ -29,20 +34,18 @@ const Header: React.FC = () => {
   };
 
   const isActive = (path: string) => {
-    return location.pathname === path;
+    return pathname === path;
   };
 
   const handleNavClick = (item: any) => {
     if (item.anchor) {
-      // Si on est sur la page d'accueil, scroll vers la section
-      if (location.pathname === '/') {
+      if (pathname === `/${locale}`) {
         const element = document.getElementById(item.anchor);
         if (element) {
           element.scrollIntoView({ behavior: 'smooth' });
         }
       } else {
-        // Si on n'est pas sur la page d'accueil, naviguer vers l'accueil puis scroll
-        window.location.href = `/#${item.anchor}`;
+        window.location.href = `/${locale}/#${item.anchor}`;
       }
     }
     setIsMenuOpen(false);
@@ -53,7 +56,7 @@ const Header: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2">
+          <Link href={`/${locale}`} className="flex items-center space-x-2">
             <FaCar className="text-primary-orange text-2xl" />
             <span className="text-xl font-bold text-primary-darkGray">
               KAIROS Car Services
@@ -78,7 +81,7 @@ const Header: React.FC = () => {
               ) : (
                 <Link
                   key={item.name}
-                  to={item.path}
+                  href={item.path}
                   className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                     isActive(item.path)
                       ? 'text-primary-orange border-b-2 border-primary-orange'
@@ -94,7 +97,7 @@ const Header: React.FC = () => {
           {/* Actions */}
           <div className="hidden md:flex items-center space-x-4">
             <LanguageSelector />
-            
+
             {currentUser ? (
               <div className="flex items-center space-x-2">
                 <div className="flex items-center space-x-2 px-3 py-2 bg-primary-gray-100 rounded-lg">
@@ -111,7 +114,7 @@ const Header: React.FC = () => {
                   <ArrowRightOnRectangleIcon className="w-4 h-4" />
                 </button>
                 <Link
-                  to="/booking"
+                  href={`/${locale}/booking`}
                   className="inline-flex items-center px-4 py-2 bg-primary-orange-500 text-white rounded-md hover:bg-primary-orange-600 transition-all font-medium"
                 >
                   {t('nav.booking')}
@@ -126,7 +129,7 @@ const Header: React.FC = () => {
                   Connexion
                 </button>
                 <Link
-                  to="/booking"
+                  href={`/${locale}/booking`}
                   className="inline-flex items-center px-4 py-2 bg-primary-orange-500 text-white rounded-md hover:bg-primary-orange-600 transition-all font-medium"
                 >
                   {t('nav.booking')}
@@ -165,7 +168,7 @@ const Header: React.FC = () => {
               ) : (
                 <Link
                   key={item.name}
-                  to={item.path}
+                  href={item.path}
                   onClick={() => setIsMenuOpen(false)}
                   className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
                     isActive(item.path)
@@ -178,7 +181,7 @@ const Header: React.FC = () => {
               )
             ))}
             <Link
-              to="/booking"
+              href={`/${locale}/booking`}
               onClick={() => setIsMenuOpen(false)}
               className="block w-full text-center px-3 py-2 mt-4 bg-primary-orange text-white rounded-md hover:bg-opacity-90 transition-all font-medium"
             >
@@ -189,9 +192,9 @@ const Header: React.FC = () => {
       )}
 
       {/* Login Modal */}
-      <LoginModal 
-        isOpen={showLoginModal} 
-        onClose={() => setShowLoginModal(false)} 
+      <LoginModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
       />
     </header>
   );
