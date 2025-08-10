@@ -1,456 +1,293 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { useAuth } from '../../contexts/AuthContext';
+import React from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { FaCar, FaMapMarkerAlt, FaCalendarAlt, FaClock, FaUsers, FaSuitcase } from 'react-icons/fa';
 import { BookingService } from '../../services/firestoreService';
-import { zones, vehicleTypes, serviceTypes, getPricing, formatPrice, PricingRule } from '../../data/pricing';
 
-interface BookingFormData {
-  zone: string;
-  destination: string;
-  service: string;
-  vehicleType: string;
-  option: string;
-  passengers: number;
-  scheduledDate: string;
-  scheduledTime: string;
-  pickupLocation: string;
-  dropoffLocation: string;
-  specialRequests: string;
-}
+const bookingSchema = z.object({
+  vehicleType: z.string().min(1, 'Type de véhicule requis'),
+  serviceType: z.string().min(1, 'Type de service requis'),
+  pickupLocation: z.string().min(1, 'Lieu de prise en charge requis'),
+  destination: z.string().optional(),
+  tripType: z.enum(['aller-simple', 'aller-retour']).default('aller-simple'),
+  departureDate: z.string().min(1, 'Date de départ requise'),
+  departureTime: z.string().min(1, 'Heure de départ requise'),
+  returnDate: z.string().optional(),
+  returnTime: z.string().optional(),
+  passengers: z.coerce.number().min(1).max(26),
+  luggage: z.coerce.number().min(0).max(20).optional(),
+  phone: z.string().min(1, 'Numéro requis'),
+  email: z.string().email('Email invalide'),
+});
+
+type BookingFormInputs = z.infer<typeof bookingSchema>;
+
+const vehicleTypes = [
+  { value: 'berline', label: 'Berline (4 places)' },
+  { value: 'suv', label: 'SUV (6 places)' },
+  { value: 'toyota-9', label: 'Toyota 9 places' },
+  { value: 'minibus-26', label: 'Mini bus 26 places' },
+];
+
+const serviceTypes = [
+  { value: 'transfert-aeroport', label: "Transfert à l'aéroport" },
+  { value: 'mise-disposition', label: 'Mise à disposition' },
+];
 
 const BookingForm: React.FC = () => {
-  const { user } = useAuth();
-  const [formData, setFormData] = useState<BookingFormData>({
-    zone: '',
-    destination: '',
-    service: '',
-    vehicleType: '',
-    option: '',
-    passengers: 1,
-    scheduledDate: '',
-    scheduledTime: '',
-    pickupLocation: '',
-    dropoffLocation: '',
-    specialRequests: ''
+  const {
+    register,
+    handleSubmit,
+    watch,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<BookingFormInputs>({
+    resolver: zodResolver(bookingSchema),
+    defaultValues: {
+      tripType: 'aller-simple',
+      passengers: 1,
+      luggage: 0,
+    },
   });
 
-  const [selectedZone, setSelectedZone] = useState('');
-  const [availableDestinations, setAvailableDestinations] = useState<string[]>([]);
-  const [availableServices, setAvailableServices] = useState<typeof serviceTypes>([]);
-  const [availableVehicles, setAvailableVehicles] = useState<typeof vehicleTypes>([]);
-  const [availableOptions, setAvailableOptions] = useState<string[]>([]);
-  const [currentPricing, setCurrentPricing] = useState<PricingRule | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [showPriceBreakdown, setShowPriceBreakdown] = useState(false);
+  const tripType = watch('tripType');
 
-  // Mettre à jour les destinations disponibles quand la zone change
-  useEffect(() => {
-    if (selectedZone) {
-      const zone = zones.find(z => z.name === selectedZone);
-      if (zone) {
-        setAvailableDestinations(zone.destinations);
-        setFormData(prev => ({ ...prev, zone: selectedZone, destination: '' }));
-      }
-    }
-  }, [selectedZone]);
-
-  // Mettre à jour les services disponibles
-  useEffect(() => {
-    if (formData.destination) {
-      if (formData.destination === 'Dans Dakar') {
-        setAvailableServices(serviceTypes.filter(s => s.id === 'rental'));
-      } else if (['Pikine', 'Thiaroye', 'Mbao', 'Rufisque'].includes(formData.destination)) {
-        setAvailableServices(serviceTypes.filter(s => s.id === 'all'));
-      } else {
-        setAvailableServices(serviceTypes.filter(s => s.id === 'transfer'));
-      }
-    }
-  }, [formData.destination]);
-
-  // Mettre à jour les véhicules disponibles
-  useEffect(() => {
-    if (formData.service) {
-      if (formData.destination === 'Dans Dakar' && formData.service === 'Mise à disposition') {
-        setAvailableVehicles(vehicleTypes.filter(v => v.id === 'berline'));
-      } else if (['Pikine', 'Thiaroye', 'Mbao', 'Rufisque'].includes(formData.destination)) {
-        setAvailableVehicles(vehicleTypes);
-      } else {
-        setAvailableVehicles(vehicleTypes);
-      }
-    }
-  }, [formData.service, formData.destination]);
-
-  // Mettre à jour les options disponibles
-  useEffect(() => {
-    if (formData.vehicleType && formData.service && formData.destination) {
-      if (formData.destination === 'Dans Dakar' && formData.service === 'Mise à disposition') {
-        setAvailableOptions(['Une heure', 'Au-delà de 3 heures (par heure)', 'Demi-journée', 'Journée']);
-      } else if (['Pikine', 'Thiaroye', 'Mbao', 'Rufisque'].includes(formData.destination)) {
-        setAvailableOptions(['Tous services']);
-      } else if (formData.destination === 'Aéroport (AIBD)') {
-        setAvailableOptions(['Aller simple', 'Aller/Retour']);
-      } else {
-        setAvailableOptions(['Aller simple', 'Aller/Retour']);
-      }
-    }
-  }, [formData.vehicleType, formData.service, formData.destination]);
-
-  // Calculer le prix
-  useEffect(() => {
-    if (formData.zone && formData.destination && formData.service && formData.vehicleType && formData.option) {
-      const pricing = getPricing(
-        formData.zone,
-        formData.destination,
-        formData.service,
-        formData.vehicleType,
-        formData.option
-      );
-      setCurrentPricing(pricing);
-    } else {
-      setCurrentPricing(null);
-    }
-  }, [formData.zone, formData.destination, formData.service, formData.vehicleType, formData.option]);
-
-  const handleInputChange = (field: keyof BookingFormData, value: string | number) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) {
-      alert('Vous devez être connecté pour effectuer une réservation');
-      return;
-    }
-
-    if (!currentPricing) {
-      alert('Impossible de calculer le prix. Veuillez vérifier vos sélections.');
-      return;
-    }
-
-    setIsLoading(true);
-
+  const onSubmit = async (data: BookingFormInputs) => {
     try {
-      const bookingData = {
-        userId: user.uid,
-        userEmail: user.email || '',
-        userName: `${user.displayName || 'Utilisateur'}`,
-        userPhone: user.phoneNumber || '',
-        
-        // Détails du trajet
-        pickupLocation: formData.pickupLocation,
-        dropoffLocation: formData.dropoffLocation || formData.destination,
-        zone: formData.zone,
-        destination: formData.destination,
-        
-        // Service et véhicule
-        service: formData.service,
-        vehicleType: formData.vehicleType,
-        option: formData.option,
-        passengers: formData.passengers,
-        
-        // Prix
-        price: currentPricing.price,
-        currency: currentPricing.currency,
-        paymentStatus: 'pending' as const,
-        
-        // Dates
-        scheduledDate: formData.scheduledDate,
-        scheduledTime: formData.scheduledTime,
-        
-        // Statut
-        status: 'pending' as const,
-        
-        // Informations supplémentaires
-        specialRequests: formData.specialRequests
-      };
-
-      const bookingId = await BookingService.createBooking(bookingData);
-      
-      alert(`Réservation créée avec succès ! ID: ${bookingId}`);
-      
-      // Réinitialiser le formulaire
-      setFormData({
-        zone: '',
-        destination: '',
-        service: '',
-        vehicleType: '',
-        option: '',
-        passengers: 1,
-        scheduledDate: '',
-        scheduledTime: '',
-        pickupLocation: '',
-        dropoffLocation: '',
-        specialRequests: ''
-      });
-      setSelectedZone('');
-      setCurrentPricing(null);
-      
+      await BookingService.createBooking(data as any);
+      alert('Réservation enregistrée');
+      reset();
     } catch (error) {
-      console.error('Erreur lors de la création de la réservation:', error);
-      alert('Erreur lors de la création de la réservation. Veuillez réessayer.');
-    } finally {
-      setIsLoading(false);
+      console.error('Erreur lors de la réservation:', error);
+      alert('Erreur lors de la réservation');
     }
   };
-
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const minDate = tomorrow.toISOString().split('T')[0];
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-lg">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-      >
-        <h2 className="text-3xl font-bold text-center mb-8 text-gray-800">
-          Réserver votre transport
-        </h2>
+    <div className="bg-white rounded-lg shadow-lg p-6 max-w-4xl mx-auto">
+      <h2 className="text-2xl font-bold text-primary-darkGray mb-6 text-center">
+        Réservation Rapide
+      </h2>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Zone et Destination */}
-          <div className="grid md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Zone
-              </label>
-              <select
-                value={selectedZone}
-                onChange={(e) => setSelectedZone(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
-              >
-                <option value="">Sélectionnez une zone</option>
-                {zones.map(zone => (
-                  <option key={zone.id} value={zone.name}>
-                    {zone.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Destination
-              </label>
-              <select
-                value={formData.destination}
-                onChange={(e) => handleInputChange('destination', e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
-                disabled={!selectedZone}
-              >
-                <option value="">Sélectionnez une destination</option>
-                {availableDestinations.map(dest => (
-                  <option key={dest} value={dest}>
-                    {dest}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Service et Véhicule */}
-          <div className="grid md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Type de service
-              </label>
-              <select
-                value={formData.service}
-                onChange={(e) => handleInputChange('service', e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
-                disabled={!formData.destination}
-              >
-                <option value="">Sélectionnez un service</option>
-                {availableServices.map(service => (
-                  <option key={service.id} value={service.name}>
-                    {service.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Type de véhicule
-              </label>
-              <select
-                value={formData.vehicleType}
-                onChange={(e) => handleInputChange('vehicleType', e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
-                disabled={!formData.service}
-              >
-                <option value="">Sélectionnez un véhicule</option>
-                {availableVehicles.map(vehicle => (
-                  <option key={vehicle.id} value={vehicle.name}>
-                    {vehicle.name} ({vehicle.capacity} places)
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Option et Passagers */}
-          <div className="grid md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Option
-              </label>
-              <select
-                value={formData.option}
-                onChange={(e) => handleInputChange('option', e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
-                disabled={!formData.vehicleType}
-              >
-                <option value="">Sélectionnez une option</option>
-                {availableOptions.map(option => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Nombre de passagers
-              </label>
-              <select
-                value={formData.passengers}
-                onChange={(e) => handleInputChange('passengers', parseInt(e.target.value))}
-                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
-              >
-                {Array.from({ length: 28 }, (_, i) => i + 1).map(num => (
-                  <option key={num} value={num}>
-                    {num} passager{num > 1 ? 's' : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Affichage du prix */}
-          {currentPricing && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center"
-            >
-              <h3 className="text-xl font-semibold text-blue-800 mb-2">
-                Prix estimé
-              </h3>
-              <p className="text-3xl font-bold text-blue-900">
-                {formatPrice(currentPricing.price, currentPricing.currency)}
-              </p>
-              {currentPricing.price === 'quote' && (
-                <p className="text-sm text-blue-600 mt-2">
-                  Un devis personnalisé vous sera envoyé
-                </p>
-              )}
-            </motion.div>
-          )}
-
-          {/* Date et heure */}
-          <div className="grid md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Date souhaitée
-              </label>
-              <input
-                type="date"
-                min={minDate}
-                value={formData.scheduledDate}
-                onChange={(e) => handleInputChange('scheduledDate', e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Heure souhaitée
-              </label>
-              <input
-                type="time"
-                value={formData.scheduledTime}
-                onChange={(e) => handleInputChange('scheduledTime', e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
-              />
-            </div>
-          </div>
-
-          {/* Lieux */}
-          <div className="grid md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Lieu de prise en charge
-              </label>
-              <input
-                type="text"
-                value={formData.pickupLocation}
-                onChange={(e) => handleInputChange('pickupLocation', e.target.value)}
-                placeholder="Adresse complète de départ"
-                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Lieu de dépose (optionnel)
-              </label>
-              <input
-                type="text"
-                value={formData.dropoffLocation}
-                onChange={(e) => handleInputChange('dropoffLocation', e.target.value)}
-                placeholder="Adresse de destination si différente"
-                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-
-          {/* Demandes spéciales */}
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Demandes spéciales (optionnel)
+            <label className="block text-sm font-medium text-primary-darkGray mb-2">
+              <FaCar className="inline mr-2" />
+              Type de véhicule *
             </label>
-            <textarea
-              value={formData.specialRequests}
-              onChange={(e) => handleInputChange('specialRequests', e.target.value)}
-              rows={3}
-              placeholder="Toute information supplémentaire..."
-              className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            <select
+              {...register('vehicleType')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-orange focus:border-transparent"
+            >
+              <option value="">Sélectionner un véhicule</option>
+              {vehicleTypes.map(vehicle => (
+                <option key={vehicle.value} value={vehicle.value}>
+                  {vehicle.label}
+                </option>
+              ))}
+            </select>
+            {errors.vehicleType && (
+              <p className="text-red-500 text-sm mt-1">{errors.vehicleType.message}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-primary-darkGray mb-2">
+              Type de service *
+            </label>
+            <select
+              {...register('serviceType')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-orange focus:border-transparent"
+            >
+              <option value="">Sélectionner un service</option>
+              {serviceTypes.map(service => (
+                <option key={service.value} value={service.value}>
+                  {service.label}
+                </option>
+              ))}
+            </select>
+            {errors.serviceType && (
+              <p className="text-red-500 text-sm mt-1">{errors.serviceType.message}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-primary-darkGray mb-2">
+              <FaMapMarkerAlt className="inline mr-2" />
+              Lieu de prise en charge *
+            </label>
+            <input
+              type="text"
+              {...register('pickupLocation')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-orange focus:border-transparent"
+              placeholder="Adresse de départ"
+            />
+            {errors.pickupLocation && (
+              <p className="text-red-500 text-sm mt-1">{errors.pickupLocation.message}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-primary-darkGray mb-2">
+              <FaMapMarkerAlt className="inline mr-2" />
+              Destination
+            </label>
+            <input
+              type="text"
+              {...register('destination')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-orange focus:border-transparent"
+              placeholder="Adresse de destination"
             />
           </div>
 
-          {/* Bouton de soumission */}
-          <motion.button
+          <div>
+            <label className="block text-sm font-medium text-primary-darkGray mb-2">
+              Type de trajet *
+            </label>
+            <select
+              {...register('tripType')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-orange focus:border-transparent"
+            >
+              <option value="aller-simple">Aller simple</option>
+              <option value="aller-retour">Aller-retour</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-primary-darkGray mb-2">
+              <FaCalendarAlt className="inline mr-2" />
+              Date de départ *
+            </label>
+            <input
+              type="date"
+              {...register('departureDate')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-orange focus:border-transparent"
+            />
+            {errors.departureDate && (
+              <p className="text-red-500 text-sm mt-1">{errors.departureDate.message}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-primary-darkGray mb-2">
+              <FaClock className="inline mr-2" />
+              Heure de départ *
+            </label>
+            <input
+              type="time"
+              {...register('departureTime')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-orange focus:border-transparent"
+            />
+            {errors.departureTime && (
+              <p className="text-red-500 text-sm mt-1">{errors.departureTime.message}</p>
+            )}
+          </div>
+
+          {tripType === 'aller-retour' && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-primary-darkGray mb-2">
+                  <FaCalendarAlt className="inline mr-2" />
+                  Date de retour
+                </label>
+                <input
+                  type="date"
+                  {...register('returnDate')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-orange focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-primary-darkGray mb-2">
+                  <FaClock className="inline mr-2" />
+                  Heure de retour
+                </label>
+                <input
+                  type="time"
+                  {...register('returnTime')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-orange focus:border-transparent"
+                />
+              </div>
+            </>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-primary-darkGray mb-2">
+              <FaUsers className="inline mr-2" />
+              Nombre de passagers *
+            </label>
+            <input
+              type="number"
+              {...register('passengers', { valueAsNumber: true })}
+              min={1}
+              max={26}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-orange focus:border-transparent"
+            />
+            {errors.passengers && (
+              <p className="text-red-500 text-sm mt-1">{errors.passengers.message}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-primary-darkGray mb-2">
+              <FaSuitcase className="inline mr-2" />
+              Nombre de valises
+            </label>
+            <input
+              type="number"
+              {...register('luggage', { valueAsNumber: true })}
+              min={0}
+              max={20}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-orange focus-border-transparent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-primary-darkGray mb-2">
+              Numéro WhatsApp *
+            </label>
+            <input
+              type="tel"
+              {...register('phone')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-orange focus-border-transparent"
+              placeholder="+221 XX XXX XX XX"
+            />
+            {errors.phone && (
+              <p className="text-red-500 text-sm mt-1">{errors.phone.message}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-primary-darkGray mb-2">
+              Adresse email *
+            </label>
+            <input
+              type="email"
+              {...register('email')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-orange focus-border-transparent"
+              placeholder="votre.email@exemple.com"
+            />
+            {errors.email && (
+              <p className="text-red-500 text-sm mt-1">{errors.email.message}</p>
+            )}
+          </div>
+        </div>
+
+        <div className="text-center">
+          <button
             type="submit"
-            disabled={isLoading || !currentPricing}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className={`w-full py-4 rounded-md font-semibold text-white transition-colors ${
-              isLoading || !currentPricing
-                ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-blue-600 hover:bg-blue-700'
-            }`}
+            disabled={isSubmitting}
+            className="bg-primary-orange text-white px-8 py-3 rounded-md font-semibold hover:bg-opacity-90 transition-all transform hover:scale-105 disabled:opacity-50 flex items-center justify-center"
           >
-            {isLoading ? 'Création en cours...' : 'Confirmer la réservation'}
-          </motion.button>
-        </form>
-      </motion.div>
+            {isSubmitting ? 'Envoi...' : 'Réserver maintenant'}
+          </button>
+        </div>
+      </form>
     </div>
   );
 };
 
 export default BookingForm;
+
