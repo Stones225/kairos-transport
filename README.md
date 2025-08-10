@@ -93,8 +93,8 @@ kairos-frontend/
 ### Installation
 ```bash
 # Cloner le repository
-git clone [repository-url]
-cd KAIROS/kairos-frontend
+git clone https://github.com/Stones225/kairos-transport.git
+cd kairos-transport/kairos-frontend
 
 # Installer les dépendances
 npm install
