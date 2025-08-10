@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build:*)",
+      "Bash(wmic process where name=\"node.exe\":*)",
+      "Bash(npm start)",
+      "Bash(npm install:*)",
+      "Bash(mkdir:*)",
+      "Bash(firebase --version)",
+      "Bash(firebase deploy:*)",
+      "Bash(firebase projects:list:*)",
+      "Bash(firebase login:*)",
+      "Bash(firebase use:*)",
+      "Bash(git add:*)",
+      "Bash(git rm:*)"
+    ],
+    "deny": []
+  }
+}

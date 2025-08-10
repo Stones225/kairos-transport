@@ -1,0 +1,95 @@
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/inter/700.css';
+@import '@fontsource/playfair-display/400.css';
+@import '@fontsource/playfair-display/700.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global Styles with Premium Typography */
+body {
+  margin: 0;
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  scroll-behavior: smooth;
+  line-height: 1.6;
+}
+
+/* Premium Glass Morphism Effect */
+.glass-morphism {
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+}
+
+.glass-morphism-dark {
+  background: rgba(51, 51, 51, 0.98);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.25);
+}
+
+/* Premium Gradient Backgrounds */
+.gradient-primary {
+  background: linear-gradient(135deg, #FF7F50 0%, #FF9D7A 50%, #FFB199 100%);
+}
+
+.gradient-neutral {
+  background: linear-gradient(135deg, #F9FAFB 0%, #FFFFFF 50%, #F1F3F4 100%);
+}
+
+.gradient-dark {
+  background: linear-gradient(135deg, #1D2939 0%, #333333 50%, #475467 100%);
+}
+
+/* Swiper Carousel Custom Styles */
+.vehicles-swiper .swiper-button-next,
+.vehicles-swiper .swiper-button-prev {
+  background-color: #FF7F50;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  color: white !important;
+}
+
+.vehicles-swiper .swiper-button-next:after,
+.vehicles-swiper .swiper-button-prev:after {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.vehicles-swiper .swiper-pagination-bullet {
+  background-color: #FF7F50;
+}
+
+.testimonials-swiper .swiper-button-next,
+.testimonials-swiper .swiper-button-prev {
+  background-color: rgba(255, 255, 255, 0.9);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  color: #FF7F50 !important;
+}
+
+.testimonials-swiper .swiper-button-next:after,
+.testimonials-swiper .swiper-button-prev:after {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.testimonials-swiper .swiper-pagination-bullet {
+  background-color: rgba(255, 255, 255, 0.7);
+}
+
+.testimonials-swiper .swiper-pagination-bullet-active {
+  background-color: white;
+}

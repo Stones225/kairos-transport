@@ -1,0 +1,116 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Règles pour les utilisateurs
+    match /users/{userId} {
+      // L'utilisateur ne peut lire/écrire que ses propres données
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      // Les admins peuvent tout faire
+      allow read, write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Règles pour les réservations
+    match /bookings/{bookingId} {
+      // L'utilisateur peut lire ses propres réservations
+      allow read: if request.auth != null && 
+        (request.auth.uid == resource.data.userId || 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'driver']);
+      
+      // L'utilisateur peut créer une réservation
+      allow create: if request.auth != null && 
+        request.auth.uid == request.resource.data.userId &&
+        isValidBooking();
+      
+      // Seuls les admins et chauffeurs peuvent modifier le statut
+      allow update: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'driver'] &&
+        isValidBookingUpdate();
+      
+      // L'utilisateur peut annuler sa propre réservation
+      allow update: if request.auth != null && 
+        request.auth.uid == resource.data.userId &&
+        resource.data.status in ['pending', 'confirmed'] &&
+        request.resource.data.status == 'cancelled';
+    }
+    
+    // Règles pour les véhicules
+    match /vehicles/{vehicleId} {
+      // Lecture publique pour les véhicules disponibles
+      allow read: if true;
+      // Seuls les admins peuvent modifier
+      allow write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Règles pour les chauffeurs
+    match /drivers/{driverId} {
+      // Lecture pour les utilisateurs authentifiés
+      allow read: if request.auth != null;
+      // Seuls les admins peuvent modifier
+      allow write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Règles pour les avis
+    match /reviews/{reviewId} {
+      // Lecture publique
+      allow read: if true;
+      // L'utilisateur peut créer un avis pour sa réservation
+      allow create: if request.auth != null && 
+        request.auth.uid == request.resource.data.userId &&
+        isValidReview();
+      // L'utilisateur peut modifier son propre avis
+      allow update: if request.auth != null && 
+        request.auth.uid == resource.data.userId;
+    }
+    
+    // Règles pour les paramètres de prix
+    match /priceSettings/{settingId} {
+      // Lecture publique
+      allow read: if true;
+      // Seuls les admins peuvent modifier
+      allow write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Règles pour les notifications
+    match /notifications/{notificationId} {
+      // L'utilisateur ne peut lire que ses propres notifications
+      allow read, write: if request.auth != null && 
+        request.auth.uid == resource.data.userId;
+      // Les admins peuvent créer des notifications
+      allow create: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Fonctions de validation
+    function isValidBooking() {
+      return request.resource.data.keys().hasAll([
+        'userId', 'pickupLocation', 'dropoffLocation', 
+        'scheduledDate', 'scheduledTime', 'passengers'
+      ]) &&
+      request.resource.data.passengers is int &&
+      request.resource.data.passengers > 0 &&
+      request.resource.data.passengers <= 26;
+    }
+    
+    function isValidBookingUpdate() {
+      return request.resource.data.status in [
+        'pending', 'confirmed', 'driver_assigned', 
+        'in_progress', 'completed', 'cancelled'
+      ];
+    }
+    
+    function isValidReview() {
+      return request.resource.data.keys().hasAll([
+        'bookingId', 'userId', 'rating'
+      ]) &&
+      request.resource.data.rating is int &&
+      request.resource.data.rating >= 1 &&
+      request.resource.data.rating <= 5;
+    }
+  }
+}
