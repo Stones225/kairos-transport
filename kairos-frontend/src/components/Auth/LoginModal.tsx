@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { XMarkIcon, EnvelopeIcon, LockClosedIcon, UserIcon, PhoneIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../../contexts/AuthContext';
-import { useLanguage } from '../../contexts/LanguageContext';
+import { useTranslations } from 'next-intl';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -11,7 +11,7 @@ interface LoginModalProps {
 
 const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
   const { login, register } = useAuth();
-  const { t } = useLanguage();
+  const t = useTranslations();
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -43,7 +43,6 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
       if (isLogin) {
         await login(formData.email, formData.password);
       } else {
-        // Validation pour l'inscription
         if (formData.password !== formData.confirmPassword) {
           throw new Error('Les mots de passe ne correspondent pas');
         }
@@ -119,18 +118,14 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
             {/* Form */}
             <div className="p-6">
               {error && (
-                <motion.div
-                  className="mb-4 p-3 bg-error-50 border border-error-500 rounded-lg text-error-500 text-sm"
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                >
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
                   {error}
-                </motion.div>
+                </div>
               )}
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 {!isLogin && (
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                       <label className="block text-sm font-medium text-primary-gray-700 mb-2">
                         Prénom
@@ -143,11 +138,12 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
                           value={formData.firstName}
                           onChange={handleChange}
                           className="w-full pl-10 pr-3 py-3 border border-primary-gray-300 rounded-lg focus:ring-2 focus:ring-primary-orange-500 focus:border-primary-orange-500 transition-colors"
-                          placeholder="Prénom"
+                          placeholder="Votre prénom"
                           required={!isLogin}
                         />
                       </div>
                     </div>
+
                     <div>
                       <label className="block text-sm font-medium text-primary-gray-700 mb-2">
                         Nom
@@ -160,7 +156,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
                           value={formData.lastName}
                           onChange={handleChange}
                           className="w-full pl-10 pr-3 py-3 border border-primary-gray-300 rounded-lg focus:ring-2 focus:ring-primary-orange-500 focus:border-primary-orange-500 transition-colors"
-                          placeholder="Nom"
+                          placeholder="Votre nom"
                           required={!isLogin}
                         />
                       </div>
@@ -256,7 +252,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
                   disabled={loading}
                   className="w-full py-3 bg-primary-orange-500 text-white font-semibold rounded-lg hover:bg-primary-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  {loading ? 'Chargement...' : (isLogin ? 'Se connecter' : 'S\'inscrire')}
+                  {loading ? 'Chargement...' : (isLogin ? 'Se connecter' : "S'inscrire")}
                 </button>
               </form>
 
@@ -265,8 +261,8 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
                   onClick={toggleMode}
                   className="text-primary-orange-500 hover:text-primary-orange-600 font-medium"
                 >
-                  {isLogin 
-                    ? "Pas de compte ? S'inscrire" 
+                  {isLogin
+                    ? "Pas de compte ? S'inscrire"
                     : 'Déjà un compte ? Se connecter'
                   }
                 </button>
