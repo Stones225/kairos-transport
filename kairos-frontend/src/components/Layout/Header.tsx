@@ -142,6 +142,7 @@ const Header: React.FC<HeaderProps> = ({ locale }) => {
           <button
             onClick={toggleMenu}
             className="md:hidden inline-flex items-center justify-center p-2 rounded-md text-primary-darkGray hover:text-primary-orange focus:outline-none"
+            aria-label="Toggle menu"
           >
             {isMenuOpen ? <FaTimes size={24} /> : <FaBars size={24} />}
           </button>
